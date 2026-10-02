@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>太鼓の達人 Web Simulator & Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800;900&family=Press+Start+2P&display=swap');
+        
+        body {
+            font-family: 'M PLUS Rounded 1c', 'Hiragino Sans', 'Meiryo', sans-serif;
+            background-color: #0b0f19;
+            color: #ffffff;
+            user-select: none;
+            overflow-x: hidden;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button, canvas {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .font-nomco {
+            font-family: 'Press Start 2P', 'M PLUS Rounded 1c', sans-serif;
+            font-weight: 900;
+            letter-spacing: -2px;
+        }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e1e24; }
+        ::-webkit-scrollbar-thumb { background: #f59e0b; border-radius: 4px; }
+
+        .lane-bg {
+            background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.9);
+        }
+
+        .drag-over {
+            border-color: #f59e0b !important;
+            background-color: rgba(245, 158, 11, 0.2) !important;
+            transform: scale(1.02);
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(255, 204, 0, 0.8)); }
+            50% { transform: scale(1.03); filter: drop-shadow(0 0 25px rgba(255, 204, 0, 1)); }
+        }
+        .pulse-prompt { animation: pulseGlow 1.4s infinite ease-in-out; }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between select-none">
+
+    <!-- Toast Notification Overlay -->
+    <div id="toastNotification" class="fixed top-5 right-5 z-50 bg-amber-500 text-slate-950 px-5 py-3 rounded-xl font-bold shadow-2xl opacity-0 pointer-events-none transition-all duration-300 transform translate-y-[-10px] flex items-center gap-2 border border-amber-300">
+        <span id="toastIcon">ℹ️</span>
+        <span id="toastMessage">通知メッセージ</span>
+    </div>
+
+    <!-- Boot Loading Screen (8s Sequence) -->
+    <div id="bootLoadingScreen" class="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center p-6 select-none">
+        <div class="text-center space-y-6 max-w-md w-full">
+            <div class="text-amber-400 font-black text-2xl tracking-widest animate-pulse">
+                SYSTEM INITIALIZING...
+            </div>
+            <div class="w-full bg-slate-800 border-2 border-amber-500/40 rounded-full h-6 overflow-hidden p-1 shadow-inner relative">
+                <div id="bootProgressBar" class="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-300 h-full rounded-full transition-all duration-300 ease-out" style="width: 0%;"></div>
+            </div>
+            <div id="bootProgressText" class="text-slate-400 text-sm font-nomco">0%</div>
+        </div>
+    </div>
+
+    <!-- Nomco Arcade Logo Screen (White BG, Red text) -->
+    <div id="nomcoLogoScreen" class="fixed inset-0 z-[90] bg-white flex flex-col items-center justify-center p-6 select-none opacity-0 pointer-events-none transition-opacity duration-700">
+        <div class="px-8 py-4 text-center">
+            <span class="text-red-600 text-6xl sm:text-8xl font-black tracking-tighter font-nomco drop-shadow-sm">nomco</span>
+        </div>
+        <div class="mt-8 text-slate-400 text-xs tracking-widest font-bold">
+            PRODUCED BY WEB SIMULATOR PROJECT
+        </div>
+    </div>
+
+    <!-- Title & Menu Screen -->
+    <div id="titlePressScreen" class="fixed inset-0 z-[80] bg-slate-950 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-red-950 via-slate-950 to-black hidden opacity-0">
+        <div class="text-center p-6 max-w-3xl">
+            <div class="inline-block bg-red-600 text-white font-black text-xs px-4 py-1 rounded-full mb-4 shadow-lg tracking-widest animate-pulse">
+                AC SIMULATION ENGINE
+            </div>
+            <h1 class="text-5xl sm:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-red-500 to-amber-400 drop-shadow-2xl mb-10 tracking-wider">
+                太鼓の達人 <span class="text-2xl sm:text-3xl block mt-2 text-white font-bold">WEB SIMULATOR</span>
+            </h1>
+            
+            <div id="titleStartPrompt" class="my-10 pulse-prompt cursor-pointer select-none p-6 border-4 border-amber-400/60 rounded-3xl bg-slate-900/80 backdrop-blur shadow-[0_0_50px_rgba(245,158,11,0.3)] hover:scale-105 transition-transform">
+                <div class="text-3xl sm:text-5xl font-black text-amber-300 drop-shadow-[0_4px_16px_rgba(245,158,11,0.8)] tracking-wide">
+                    バチを叩いて はじめよう！
+                </div>
+                <div class="mt-4 text-slate-400 text-sm font-bold tracking-widest">
+                    TAP SCREEN OR PRESS ANY KEY
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="mainAppContainer" class="min-h-screen flex flex-col justify-between opacity-0 transition-opacity duration-500 pointer-events-none">
+        <!-- Navigation Header -->
+        <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 p-4 sticky top-0 z-20 flex justify-between items-center shadow-lg">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center font-black text-xl text-yellow-300 border-2 border-yellow-400 shadow-md">
+                    太
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-lg sm:text-xl text-amber-400 tracking-wide">太鼓の達人 WEB</h1>
+                    <p class="text-xs text-slate-400">TJA & 音源 (OGG/MP3/WAV) 完全対応</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="navSongListBtn" onclick="switchView('select')" class="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold rounded-lg border border-amber-500/40 text-sm transition">
+                    🎵 選曲リスト
+                </button>
+                <button id="navPlayBtn" onclick="switchView('play')" class="px-4 py-2 bg-slate-800 text-slate-400 font-bold rounded-lg border border-slate-700 text-sm hover:text-white transition">
+                    🎮 演奏画面
+                </button>
+            </div>
+        </header>
+
+        <!-- Main View Area -->
+        <main class="flex-1 max-w-6xl w-full mx-auto p-4 flex flex-col justify-center">
+            <div id="songSelectView" class="space-y-6">
+                <!-- Drop Zone -->
+                <div id="dropZone" class="border-3 border-dashed border-slate-700 hover:border-amber-500/80 bg-slate-900/50 rounded-2xl p-8 text-center transition-all cursor-pointer shadow-inner flex flex-col items-center justify-center gap-3">
+                    <div class="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center text-3xl text-amber-400 border border-amber-500/20 mb-1">
+                        📂
+                    </div>
+                    <div>
+                        <p class="text-lg font-bold text-amber-300">.tja ファイル と 音源 (.ogg / .mp3 / .wav) をここにドロップ</p>
+                        <p class="text-sm text-slate-400 mt-1">複数ファイルの一括ドロップ・フォルダのドラッグ＆ドロップに対応</p>
+                    </div>
+                    <input type="file" id="fileInput" multiple accept=".tja,.ogg,.mp3,.wav" class="hidden">
+                    <button onclick="document.getElementById('fileInput').click()" class="mt-2 px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl shadow-lg text-sm transition">
+                        ファイルを選択
+                    </button>
+                </div>
+
+                <!-- Song List Container -->
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-black text-amber-400 flex items-center gap-2">
+                            <span>🥁</span> 登録済み楽曲 (<span id="songCountDisplay">0</span>)
+                        </h2>
+                    </div>
+
+                    <div id="songListContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                </div>
+            </div>
+
+            <!-- Gameplay View -->
+            <div id="gamePlayView" class="hidden flex-col items-center justify-center space-y-4">
+                <div class="w-full flex justify-between items-center bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+                    <div>
+                        <h2 id="playSongTitle" class="text-2xl font-black text-amber-300">曲名未選択</h2>
+                        <p id="playSongSub" class="text-xs text-slate-400 mt-0.5">---</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="flex items-center gap-2 cursor-pointer bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 text-sm">
+                            <input type="checkbox" id="autoPlayToggle" class="accent-amber-500 w-4 h-4">
+                            <span class="font-bold text-amber-400">🤖 オート演奏</span>
+                        </label>
+                        <button id="stopPlayBtn" onclick="stopSongPlay()" class="bg-red-600 hover:bg-red-500 text-white font-extrabold px-4 py-2 rounded-lg text-sm shadow-md transition">
+                            ⏹ 演奏停止
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Soul Gauge Bar -->
+                <div class="w-full bg-slate-900 border border-slate-800 h-6 rounded-full overflow-hidden p-1 relative">
+                    <div id="soulGaugeBar" class="h-full bg-gradient-to-r from-yellow-500 via-amber-500 to-red-500 rounded-full transition-all duration-200" style="width: 0%;"></div>
+                    <div class="absolute right-3 top-0 bottom-0 flex items-center text-[10px] font-black text-slate-300 tracking-wider pointer-events-none">
+                        魂 GAUGE
+                    </div>
+                </div>
+
+                <!-- Canvas Taiko Lane -->
+                <div class="w-full relative rounded-2xl overflow-hidden border-2 border-slate-800 shadow-2xl lane-bg">
+                    <canvas id="taikoCanvas" class="w-full h-44 sm:h-52 block"></canvas>
+                </div>
+
+                <!-- Score & Stats -->
+                <div class="w-full grid grid-cols-4 gap-3 text-center">
+                    <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
+                        <div class="text-xs text-slate-400 font-bold">SCORE</div>
+                        <div id="scoreDisplay" class="text-2xl sm:text-3xl font-black text-amber-400 font-nomco">0</div>
+                    </div>
+                    <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
+                        <div class="text-xs text-slate-400 font-bold">COMBO</div>
+                        <div id="comboDisplay" class="text-2xl sm:text-3xl font-black text-yellow-300 font-nomco">0</div>
+                    </div>
+                    <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
+                        <div class="text-xs text-slate-400 font-bold">MAX COMBO</div>
+                        <div id="maxComboDisplay" class="text-2xl sm:text-3xl font-black text-amber-500 font-nomco">0</div>
+                    </div>
+                    <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
+                        <div class="text-xs text-slate-400 font-bold">HIT STATUS (良/可/不可)</div>
+                        <div id="hitStatusDisplay" class="text-sm sm:text-lg font-black text-slate-200 mt-1">0 / 0 / 0</div>
+                    </div>
+                </div>
+
+                <!-- Input Controls UI -->
+                <div id="inputUIContainer" class="w-full"></div>
+            </div>
+        </main>
+
+        <footer class="bg-slate-900/60 border-t border-slate-900 text-center py-3 text-xs text-slate-500">
+            Taiko no Tatsujin Web Simulator Engine &copy; 2026
+        </footer>
+    </div>
+
+    <script>
+        let audioCtx = null;
+        const soundBuffers = {};
+        let loopBgmSource = null;
+        let isBgmPlaying = false;
+
+        function initAudioContext() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        async function loadSoundBuffer(name, url) {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('File not found');
+                const arrayBuffer = await res.arrayBuffer();
+                initAudioContext();
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                soundBuffers[name] = audioBuffer;
+            } catch (err) {
+                console.log(`Audio buffer loading skipped/fallback for: ${name}`);
+            }
+        }
+
+        async function preloadGameSounds() {
+            initAudioContext();
+            loadSoundBuffer('don', 'don.wav');
+            loadSoundBuffer('ka', 'ka.wav');
+            loadSoundBuffer('renda', 'renda.mp3');
+            loadSoundBuffer('kusdma', 'kusdma.mp3');
+            loadSoundBuffer('loop', 'loop.mp3');
+
+            const comboVoices = [10, 30, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400];
+            comboVoices.forEach(c => {
+                const fileName = (c === 200) ? '200c2.mp3' : `${c}c1.mp3`;
+                loadSoundBuffer(`combo_${c}`, fileName);
+            });
+        }
+
+        function playSound(name) {
+            initAudioContext();
+            if (soundBuffers[name]) {
+                const source = audioCtx.createBufferSource();
+                source.buffer = soundBuffers[name];
+                source.connect(audioCtx.destination);
+                source.start(0);
+            } else {
+                if (name === 'don') playSynthesizedDrum(130, 0.15);
+                else if (name === 'ka') playSynthesizedDrum(450, 0.08);
+            }
+        }
+
+        function playSynthesizedDrum(freq, duration) {
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = freq < 200 ? 'sine' : 'triangle';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + duration);
+                gain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function playSelectionBGM() {
+            if (isBgmPlaying) return;
+            initAudioContext();
+            if (soundBuffers['loop']) {
+                try {
+                    if (loopBgmSource) loopBgmSource.stop();
+                    loopBgmSource = audioCtx.createBufferSource();
+                    loopBgmSource.buffer = soundBuffers['loop'];
+                    loopBgmSource.loop = true;
+                    loopBgmSource.connect(audioCtx.destination);
+                    loopBgmSource.start(0);
+                    isBgmPlaying = true;
+                } catch(e) {}
+            }
+        }
+
+        function stopSelectionBGM() {
+            if (loopBgmSource) {
+                try { loopBgmSource.stop(); } catch(e) {}
+                loopBgmSource = null;
+            }
+            isBgmPlaying = false;
+        }
+
+        function triggerComboVoice(combo) {
+            const soundKey = `combo_${combo}`;
+            if (soundBuffers[soundKey]) playSound(soundKey);
+        }
+
+        let inMemorySongs = [];
+        let db = null;
+        let inputMode = 'keyboard';
+
+        function showToast(msg, icon = 'ℹ') {
+            const toast = document.getElementById('toastNotification');
+            if (!toast) return;
+            document.getElementById('toastMessage').innerText = msg;
+            document.getElementById('toastIcon').innerText = icon;
+            toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-[-10px]');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-[-10px]');
+            }, 3000);
+        }
+
+        function initDB() {
+            return new Promise((resolve) => {
+                try {
+                    const req = indexedDB.open('TaikoWebDB', 1);
+                    req.onupgradeneeded = (e) => {
+                        const database = e.target.result;
+                        if (!database.objectStoreNames.contains('songs')) {
+                            database.createObjectStore('songs', { keyPath: 'id', autoIncrement: true });
+                        }
+                    };
+                    req.onsuccess = (e) => {
+                        db = e.target.result;
+                        resolve(true);
+                    };
+                    req.onerror = () => {
+                        db = null;
+                        resolve(false);
+                    };
+                } catch(e) {
+                    db = null;
+                    resolve(false);
+                }
+            });
+        }
+
+        document.getElementById('titlePressScreen').addEventListener('click', (e) => {
+            initAudioContext();
+            preloadGameSounds();
+            inputMode = 'touch';
+            setupInputUI();
+            dismissTitleScreen();
+        });
+
+        window.addEventListener('keydown', (e) => {
+            initAudioContext();
+            preloadGameSounds();
+            if (document.getElementById('titlePressScreen').style.display !== 'none') {
+                inputMode = 'keyboard';
+                setupInputUI();
+                dismissTitleScreen();
+            }
+        });
+
+        function dismissTitleScreen() {
+            const titleScreen = document.getElementById('titlePressScreen');
+            const mainApp = document.getElementById('mainAppContainer');
+            
+            titleScreen.style.opacity = '0';
+            titleScreen.style.transition = 'opacity 0.5s ease';
+            
+            setTimeout(() => {
+                titleScreen.style.display = 'none';
+                if (mainApp) {
+                    mainApp.classList.remove('opacity-0', 'pointer-events-none');
+                    mainApp.classList.add('opacity-100');
+                }
+                playSelectionBGM();
+            }, 500);
+        }
+
+        function setupInputUI() {
+            const container = document.getElementById('inputUIContainer');
+            if (inputMode === 'touch') {
+                container.innerHTML = `
+                    <div class="flex justify-center items-center gap-2 sm:gap-4 my-2">
+                        <button onpointerdown="triggerDrumHit('ka', 'left')" class="flex-1 py-8 bg-cyan-600 active:bg-cyan-400 text-white font-black text-xl rounded-2xl border-b-4 border-cyan-800 shadow-lg active:translate-y-1 transition-all">
+                            カッ (左)
+                        </button>
+                        <button onpointerdown="triggerDrumHit('don', 'left')" class="flex-1 py-10 bg-red-600 active:bg-red-400 text-white font-black text-2xl rounded-2xl border-b-4 border-red-800 shadow-lg active:translate-y-1 transition-all">
+                            ドン (左)
+                        </button>
+                        <button onpointerdown="triggerDrumHit('don', 'right')" class="flex-1 py-10 bg-red-600 active:bg-red-400 text-white font-black text-2xl rounded-2xl border-b-4 border-red-800 shadow-lg active:translate-y-1 transition-all">
+                            ドン (右)
+                        </button>
+                        <button onpointerdown="triggerDrumHit('ka', 'right')" class="flex-1 py-8 bg-cyan-600 active:bg-cyan-400 text-white font-black text-xl rounded-2xl border-b-4 border-cyan-800 shadow-lg active:translate-y-1 transition-all">
+                            カッ (右)
+                        </button>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="grid grid-cols-4 gap-3 text-center">
+                        <div class="bg-cyan-900/40 border border-cyan-500/30 p-3 rounded-xl text-cyan-300 font-bold">
+                            カッ (左) <span class="block text-2xl font-black mt-1 text-white">F</span>
+                        </div>
+                        <div class="bg-red-900/40 border border-red-500/30 p-3 rounded-xl text-red-300 font-bold">
+                            ドン (左) <span class="block text-2xl font-black mt-1 text-white">D</span>
+                        </div>
+                        <div class="bg-red-900/40 border border-red-500/30 p-3 rounded-xl text-red-300 font-bold">
+                            ドン (右) <span class="block text-2xl font-black mt-1 text-white">J</span>
+                        </div>
+                        <div class="bg-cyan-900/40 border border-cyan-500/30 p-3 rounded-xl text-cyan-300 font-bold">
+                            カッ (右) <span class="block text-2xl font-black mt-1 text-white">K</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            handleFiles(e.dataTransfer.files);
+        });
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        async function handleFiles(files) {
+            if (!files || files.length === 0) return;
+            showToast('ファイルを解析中...', '🔄');
+
+            const fileList = Array.from(files);
+            const tjaFiles = fileList.filter(f => f.name.toLowerCase().endsWith('.tja'));
+            const audioFiles = fileList.filter(f => /\.(ogg|mp3|wav)$/i.test(f.name));
+
+            if (tjaFiles.length === 0) {
+                showToast('.tja ファイルを選択してください', '⚠️');
+                return;
+            }
+
+            let addedCount = 0;
+            for (const tjaFile of tjaFiles) {
+                try {
+                    const arrayBuffer = await tjaFile.arrayBuffer();
+                    let text = new TextDecoder('utf-8').decode(arrayBuffer);
+                    if (text.includes('\uFFFD')) {
+                        text = new TextDecoder('shift-jis').decode(arrayBuffer);
+                    }
+
+                    const parsed = parseTJA(text);
+                    let matchedAudio = null;
+
+                    if (parsed.wave) {
+                        matchedAudio = audioFiles.find(a => a.name.toLowerCase() === parsed.wave.toLowerCase());
+                    }
+                    if (!matchedAudio) {
+                        const baseName = tjaFile.name.substring(0, tjaFile.name.lastIndexOf('.'));
+                        matchedAudio = audioFiles.find(a => a.name.startsWith(baseName));
+                    }
+                    if (!matchedAudio && audioFiles.length > 0) {
+                        matchedAudio = audioFiles[0];
+                    }
+
+                    let audioData = null;
+                    if (matchedAudio) {
+                        audioData = await matchedAudio.arrayBuffer();
+                    }
+
+                    const songObj = {
+                        title: parsed.title || tjaFile.name.replace('.tja', ''),
+                        subtitle: parsed.subtitle || '',
+                        bpm: parsed.bpm || 120,
+                        waveName: matchedAudio ? matchedAudio.name : '',
+                        tjaText: text,
+                        audioData: audioData,
+                        highScore: 0,
+                        maxComboRecord: 0
+                    };
+
+                    await saveSong(songObj);
+                    addedCount++;
+                } catch(err) {
+                    console.error("Error loading song:", err);
+                }
+            }
+
+            showToast(`${addedCount} 曲を追加しました！`, '✨');
+            renderSongList();
+        }
+
+        function parseTJA(tjaText) {
+            const lines = tjaText.split(/\r?\n/);
+            const header = { title: '', subtitle: '', bpm: 120, wave: '', offset: 0, course: 'oni' };
+            let currentBPM = 120;
+
+            for (let line of lines) {
+                line = line.trim();
+                if (line.startsWith('//')) continue;
+
+                if (line.startsWith('TITLE:')) header.title = line.substring(6).trim();
+                else if (line.startsWith('SUBTITLE:')) header.subtitle = line.substring(9).trim().replace(/^--/, '');
+                else if (line.startsWith('BPM:')) {
+                    header.bpm = parseFloat(line.substring(4).trim()) || 120;
+                    currentBPM = header.bpm;
+                }
+                else if (line.startsWith('WAVE:')) header.wave = line.substring(5).trim();
+                else if (line.startsWith('OFFSET:')) {
+                    header.offset = parseFloat(line.substring(7).trim()) || 0;
+                }
+            }
+
+            return { ...header, rawText: tjaText };
+        }
+
+        async function saveSong(song) {
+            if (db) {
+                return new Promise((resolve) => {
+                    const tx = db.transaction('songs', 'readwrite');
+                    const store = tx.objectStore('songs');
+                    store.add(song);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => {
+                        inMemorySongs.push(song);
+                        resolve();
+                    };
+                });
+            } else {
+                inMemorySongs.push(song);
+            }
+        }
+
+        async function getSavedSongs() {
+            if (db) {
+                return new Promise((resolve) => {
+                    const tx = db.transaction('songs', 'readonly');
+                    const store = tx.objectStore('songs');
+                    const req = store.getAll();
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => resolve(inMemorySongs);
+                });
+            }
+            return inMemorySongs;
+        }
+
+        async function renderSongList() {
+            const songs = await getSavedSongs();
+            const container = document.getElementById('songListContainer');
+            document.getElementById('songCountDisplay').innerText = songs.length;
+
+            if (songs.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full py-12 text-center text-slate-500 font-bold border border-slate-800 rounded-2xl bg-slate-900/30">
+                        曲が登録されていません。TJAと音源をドロップしてください。
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = songs.map((s, index) => `
+                <div class="bg-slate-900 border border-slate-800 hover:border-amber-500/50 p-5 rounded-2xl shadow-lg flex justify-between items-center transition group">
+                    <div class="flex-1 mr-4 overflow-hidden">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">おに</span>
+                            <span class="text-xs text-amber-400 font-bold">BPM ${s.bpm}</span>
+                        </div>
+                        <h3 class="text-lg font-black text-white truncate group-hover:text-amber-300 transition-colors">${s.title}</h3>
+                        <p class="text-xs text-slate-400 truncate">${s.subtitle || '---'}</p>
+                    </div>
+                    <button onclick="startPlaySong(${index})" class="px-5 py-3 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 font-black rounded-xl shadow-lg transform hover:scale-105 active:scale-95 transition flex items-center gap-1 shrink-0">
+                        ▶ 演奏
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        let currentSong = null;
+        let isPlaying = false;
+        let gameNotes = [];
+        let songOffset = 0;
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let goodCount = 0;
+        let okCount = 0;
+        let badCount = 0;
+        let soulGauge = 0;
+        let songAudioSource = null;
+        let audioStartTime = 0;
+        let playStartSystemTime = 0;
+        let animationFrameId = null;
+
+        let hitEffects = [];
+
+        // タブフォーカス切り替え時の音源遅延・ズレ補正
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && isPlaying) {
+                if (audioCtx && audioCtx.state === 'running') {
+                    audioCtx.suspend();
+                }
+            } else if (!document.hidden && isPlaying) {
+                if (audioCtx && audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+            }
+        });
+
+        function resizeCanvas() {
+            if (canvas && canvas.clientWidth && canvas.clientHeight) {
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function switchView(view) {
+            if (view === 'select') {
+                document.getElementById('songSelectView').classList.remove('hidden');
+                document.getElementById('gamePlayView').classList.add('hidden');
+                document.getElementById('navSongListBtn').classList.add('bg-amber-500/20', 'text-amber-300', 'border-amber-500/40');
+                document.getElementById('navPlayBtn').classList.remove('bg-amber-500/20', 'text-amber-300', 'border-amber-500/40');
+                playSelectionBGM();
+            } else {
+                document.getElementById('songSelectView').classList.add('hidden');
+                document.getElementById('gamePlayView').classList.remove('hidden');
+                document.getElementById('navPlayBtn').classList.add('bg-amber-500/20', 'text-amber-300', 'border-amber-500/40');
+                document.getElementById('navSongListBtn').classList.remove('bg-amber-500/20', 'text-amber-300', 'border-amber-500/40');
+                stopSelectionBGM();
+            }
+        }
+
+        async function startPlaySong(songIndex) {
+            // 重複再生およびゲームループの重複（メモリリーク）防止
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            if (songAudioSource) {
+                try { songAudioSource.stop(); } catch(e) {}
+                songAudioSource = null;
+            }
+
+            const songs = await getSavedSongs();
+            currentSong = songs[songIndex];
+            if (!currentSong) return;
+
+            stopSelectionBGM();
+            switchView('play');
+
+            document.getElementById('playSongTitle').innerText = currentSong.title;
+            document.getElementById('playSongSub').innerText = currentSong.subtitle || '';
+
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+            goodCount = 0;
+            okCount = 0;
+            badCount = 0;
+            soulGauge = 0;
+            hitEffects = [];
+            updateHUD();
+
+            const parsedData = parseTJA(currentSong.tjaText);
+            songOffset = parsedData.offset || 0;
+            parseChartNotes(currentSong.tjaText, currentSong.bpm);
+
+            initAudioContext();
+            if (currentSong.audioData) {
+                try {
+                    const decoded = await audioCtx.decodeAudioData(currentSong.audioData.slice(0));
+                    songAudioSource = audioCtx.createBufferSource();
+                    songAudioSource.buffer = decoded;
+                    songAudioSource.connect(audioCtx.destination);
+                } catch(e) {
+                    console.error("Audio decoding failed:", e);
+                    songAudioSource = null;
+                }
+            }
+
+            isPlaying = true;
+            const startDelay = 1.0;
+            audioStartTime = audioCtx.currentTime + startDelay;
+            playStartSystemTime = performance.now() + (startDelay * 1000);
+
+            if (songAudioSource) {
+                songAudioSource.start(audioStartTime);
+            }
+
+            resizeCanvas();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function stopSongPlay() {
+            isPlaying = false;
+            if (songAudioSource) {
+                try { songAudioSource.stop(); } catch(e) {}
+                songAudioSource = null;
+            }
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            switchView('select');
+        }
+
+        function parseChartNotes(tjaText, baseBPM) {
+            gameNotes = [];
+            const lines = tjaText.split(/\r?\n/);
+            let inHeader = true;
+            let currentBPM = baseBPM;
+            let measureRatio = 1.0;
+            let currentMeasure = [];
+            let totalTime = 0;
+
+            for (let line of lines) {
+                line = line.trim();
+                if (line === '#START') { inHeader = false; continue; }
+                if (line === '#END') break;
+                if (inHeader) continue;
+
+                if (line.startsWith('#BPMCHANGE')) {
+                    currentBPM = parseFloat(line.split(' ')[1]) || currentBPM;
+                    continue;
+                }
+
+                if (line.startsWith('#MEASURE')) {
+                    const parts = line.split(' ')[1];
+                    if (parts && parts.includes('/')) {
+                        const [num, den] = parts.split('/').map(Number);
+                        if (num > 0 && den > 0) {
+                            measureRatio = num / den;
+                        }
+                    }
+                    continue;
+                }
+
+                if (line.includes(',')) {
+                    const parts = line.split(',');
+                    currentMeasure.push(parts[0]);
+                    const measureStr = currentMeasure.join('');
+                    const noteCount = measureStr.length;
+                    const measureDuration = (60 / currentBPM) * 4 * measureRatio;
+
+                    for (let i = 0; i < noteCount; i++) {
+                        const char = measureStr[i];
+                        if (['1','2','3','4','5','6','7','9'].includes(char)) {
+                            const time = totalTime + (i / noteCount) * measureDuration;
+                            gameNotes.push({
+                                type: char,
+                                time: time,
+                                hit: false,
+                                missed: false,
+                                rendaStarted: false,
+                                kusdmaBroken: false
+                            });
+                        }
+                    }
+
+                    totalTime += measureDuration;
+                    currentMeasure = [];
+                } else if (line.length > 0 && !line.startsWith('#')) {
+                    currentMeasure.push(line);
+                }
+            }
+        }
+
+        function gameLoop(now) {
+            if (!isPlaying) return;
+
+            let currentTime = 0;
+            if (audioCtx) {
+                const elapsedTime = audioCtx.currentTime - audioStartTime;
+                currentTime = elapsedTime + songOffset;
+            } else {
+                currentTime = ((now - playStartSystemTime) / 1000) + songOffset;
+            }
+
+            const isAuto = document.getElementById('autoPlayToggle').checked;
+
+            const targetX = 120;
+            const targetY = canvas.height / 2;
+            const noteSpeed = 380;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.beginPath();
+            ctx.arc(targetX, targetY, 35, 0, Math.PI * 2);
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 5;
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fill();
+
+            for (let note of gameNotes) {
+                const noteX = targetX + (note.time - currentTime) * noteSpeed;
+
+                if (isAuto) {
+                    // 通常ノーツのオートヒット
+                    if (!note.hit && note.time <= currentTime) {
+                        if (['1','3'].includes(note.type)) {
+                            triggerDrumHit('don', 'left', true);
+                            note.hit = true;
+                            processHit('GOOD');
+                        } else if (['2','4'].includes(note.type)) {
+                            triggerDrumHit('ka', 'left', true);
+                            note.hit = true;
+                            processHit('GOOD');
+                        }
+                    }
+
+                    // 連打ノーツ (5:黄連打, 6:大黄連打, 7:くす玉, 9:風船/芋) のオート打撃処理
+                    if (['5','6','7','9'].includes(note.type) && currentTime >= note.time) {
+                        if (!note.rendaStarted) {
+                            note.rendaStarted = true;
+                            playSound('renda');
+                        }
+                        if (!note.lastAutoHit || currentTime - note.lastAutoHit > 0.05) {
+                            note.lastAutoHit = currentTime;
+                            if (['7','9'].includes(note.type) && !note.kusdmaBroken) {
+                                note.rollCount = (note.rollCount || 0) + 1;
+                                if (note.rollCount >= 12) {
+                                    note.kusdmaBroken = true;
+                                    playSound('kusdma');
+                                } else {
+                                    playSound('don');
+                                }
+                            } else {
+                                playSound('don');
+                            }
+                        }
+                    }
+                }
+
+                if (['5','6','7','9'].includes(note.type) && !note.rendaStarted && noteX <= targetX + 20) {
+                    note.rendaStarted = true;
+                    playSound('renda');
+                }
+
+                // 判定ミス（可・良判定の閾値 150ms を過ぎた場合）
+                if (!note.hit && !note.missed && currentTime - note.time > 0.15 && ['1','2','3','4'].includes(note.type)) {
+                    note.missed = true;
+                    combo = 0;
+                    badCount++;
+                    addHitEffect('不可', '#94a3b8');
+                    updateHUD();
+                }
+
+                if (noteX > -50 && noteX < canvas.width + 50 && !note.hit) {
+                    ctx.beginPath();
+                    ctx.arc(noteX, targetY, note.type === '3' || note.type === '4' ? 38 : 28, 0, Math.PI * 2);
+                    
+                    if (['1','3'].includes(note.type)) ctx.fillStyle = '#ef4444';
+                    else if (['2','4'].includes(note.type)) ctx.fillStyle = '#06b6d4';
+                    else ctx.fillStyle = '#f59e0b';
+
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+            }
+
+            // 判定文字・弾けエフェクトのアニメーション描画
+            for (let i = hitEffects.length - 1; i >= 0; i--) {
+                const eff = hitEffects[i];
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, eff.alpha);
+
+                if (eff.isExplosion) {
+                    // 打撃時の爆発リング演出
+                    ctx.beginPath();
+                    ctx.arc(eff.x, eff.y, eff.radius * eff.scale, 0, Math.PI * 2);
+                    ctx.strokeStyle = eff.color;
+                    ctx.lineWidth = 4 * eff.alpha;
+                    ctx.stroke();
+                    eff.scale += 0.08;
+                    eff.alpha -= 0.08;
+                } else {
+                    // 判定文字 (良 / 可 / 不可)
+                    ctx.font = '900 22px "M PLUS Rounded 1c", sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = eff.color;
+                    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                    ctx.shadowBlur = 6;
+                    ctx.fillText(eff.text, eff.x, eff.y);
+
+                    eff.y += eff.dy;
+                    eff.alpha -= 0.03;
+                }
+
+                ctx.restore();
+
+                if (eff.alpha <= 0) {
+                    hitEffects.splice(i, 1);
+                }
+            }
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function addHitEffect(text, color) {
+            const targetX = 120;
+            const targetY = canvas.height / 2;
+            hitEffects.push({
+                isExplosion: false,
+                text: text,
+                color: color,
+                x: targetX,
+                y: targetY - 35,
+                alpha: 1.0,
+                dy: -1.2
+            });
+        }
+
+        function addNoteExplosion(type) {
+            const targetX = 120;
+            const targetY = canvas.height / 2;
+            let color = '#f59e0b';
+            if (['1','3'].includes(type)) color = '#ef4444';
+            else if (['2','4'].includes(type)) color = '#06b6d4';
+
+            hitEffects.push({
+                isExplosion: true,
+                x: targetX,
+                y: targetY,
+                color: color,
+                radius: ['3','4'].includes(type) ? 38 : 28,
+                scale: 1.0,
+                alpha: 1.0
+            });
+        }
+
+        function triggerDrumHit(type, side, isAuto = false) {
+            playSound(type);
+
+            if (isAuto) return;
+
+            let currentTime = 0;
+            if (audioCtx) {
+                currentTime = (audioCtx.currentTime - audioStartTime) + songOffset;
+            } else {
+                currentTime = ((performance.now() - playStartSystemTime) / 1000) + songOffset;
+            }
+
+            // 判定幅を 0.15s (150ms) に拡張
+            const candidate = gameNotes.find(n => !n.hit && !n.missed && Math.abs(currentTime - n.time) < 0.15);
+
+            if (candidate) {
+                const diff = Math.abs(currentTime - candidate.time);
+                const isDonHit = ['1','3'].includes(candidate.type) && type === 'don';
+                const isKaHit = ['2','4'].includes(candidate.type) && type === 'ka';
+
+                if (isDonHit || isKaHit) {
+                    candidate.hit = true;
+                    addNoteExplosion(candidate.type);
+                    if (diff < 0.07) processHit('GOOD');      // 良判定: 70ms以内
+                    else processHit('OK');                    // 可判定: 70ms〜150ms
+                }
+            } else {
+                const rollCandidate = gameNotes.find(n => ['5','6','7','9'].includes(n.type) && n.rendaStarted && !n.kusdmaBroken);
+                if (rollCandidate) {
+                    score += 100;
+                    updateHUD();
+                    addNoteExplosion('5');
+                    if (['7','9'].includes(rollCandidate.type)) {
+                        rollCandidate.rollCount = (rollCandidate.rollCount || 0) + 1;
+                        if (rollCandidate.rollCount >= 10) {
+                            rollCandidate.kusdmaBroken = true;
+                            playSound('kusdma');
+                        }
+                    }
+                }
+            }
+        }
+
+        function processHit(quality) {
+            if (quality === 'GOOD') {
+                score += 1000;
+                combo++;
+                goodCount++;
+                soulGauge = Math.min(100, soulGauge + 2);
+                addHitEffect('良', '#f59e0b');
+            } else if (quality === 'OK') {
+                score += 500;
+                combo++;
+                okCount++;
+                soulGauge = Math.min(100, soulGauge + 1);
+                addHitEffect('可', '#38bdf8');
+            }
+
+            if (combo > maxCombo) maxCombo = combo;
+
+            if (combo === 10 || combo === 30 || combo === 50 || (combo >= 100 && combo % 100 === 0 && combo <= 1400)) {
+                triggerComboVoice(combo);
+            }
+
+            updateHUD();
+        }
+
+        function updateHUD() {
+            document.getElementById('scoreDisplay').innerText = score.toLocaleString();
+            document.getElementById('comboDisplay').innerText = combo;
+            document.getElementById('maxComboDisplay').innerText = maxCombo;
+            document.getElementById('hitStatusDisplay').innerText = `${goodCount} / ${okCount} / ${badCount}`;
+            document.getElementById('soulGaugeBar').style.width = `${soulGauge}%`;
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (!isPlaying) return;
+            const key = e.key.toLowerCase();
+            if (key === 'f') triggerDrumHit('ka', 'left');
+            if (key === 'd') triggerDrumHit('don', 'left');
+            if (key === 'j') triggerDrumHit('don', 'right');
+            if (key === 'k') triggerDrumHit('ka', 'right');
+        });
+
+        window.onload = async () => {
+            startBootSequence();
+            await initDB();
+            renderSongList();
+        };
+
+        function startBootSequence() {
+            const progressBar = document.getElementById('bootProgressBar');
+            const progressText = document.getElementById('bootProgressText');
+            const loadingScreen = document.getElementById('bootLoadingScreen');
+            const nomcoScreen = document.getElementById('nomcoLogoScreen');
+            const titleScreen = document.getElementById('titlePressScreen');
+
+            if (!loadingScreen || !nomcoScreen || !titleScreen) return;
+
+            // タイトル画面は初期状態で非表示（チラつき防止）
+            titleScreen.classList.add('hidden');
+            titleScreen.style.opacity = '0';
+
+            let progress = 0;
+            const updateProgress = (val) => {
+                progress = val;
+                progressBar.style.width = `${progress}%`;
+                progressText.innerText = `${Math.floor(progress)}%`;
+            };
+
+            setTimeout(() => updateProgress(14), 1000);
+            setTimeout(() => updateProgress(35), 2500);
+            setTimeout(() => updateProgress(59), 4200);
+            setTimeout(() => updateProgress(81), 6000);
+            setTimeout(() => updateProgress(94), 7200);
+
+            setTimeout(() => {
+                updateProgress(100);
+                setTimeout(() => {
+                    // ロード画面が消える前に背面にnomco画面を準備
+                    nomcoScreen.classList.remove('opacity-0', 'pointer-events-none');
+                    nomcoScreen.classList.add('opacity-100');
+
+                    // ロード画面をフェードアウト
+                    loadingScreen.style.opacity = '0';
+                    loadingScreen.style.transition = 'opacity 0.6s ease';
+                    
+                    setTimeout(() => {
+                        loadingScreen.style.display = 'none';
+
+                        // nomcoロゴを3秒間表示
+                        setTimeout(() => {
+                            nomcoScreen.style.transition = 'opacity 0.7s ease';
+                            nomcoScreen.classList.remove('opacity-100');
+                            nomcoScreen.classList.add('opacity-0', 'pointer-events-none');
+                            
+                            // nomco画面のフェードアウト完了後にタイトル画面を表示
+                            setTimeout(() => {
+                                nomcoScreen.style.display = 'none';
+                                titleScreen.classList.remove('hidden');
+                                titleScreen.style.display = 'flex';
+                                
+                                setTimeout(() => {
+                                    titleScreen.style.transition = 'opacity 0.7s ease';
+                                    titleScreen.style.opacity = '1';
+                                }, 50);
+                            }, 700);
+                        }, 3000);
+                    }, 600);
+                }, 400);
+            }, 8000);
+        }
+    </script>
+</body>
+</html>
