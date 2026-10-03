@@ -160,7 +160,7 @@
             </div>
         </div>
         <div class="absolute bottom-4 left-4 text-xs font-mono text-slate-200 font-bold tracking-wider">
-            Version3.75.26.10.3-ja
+            Version3.80.26.10.3-ja
         </div>
     </div>
     </div>
@@ -722,23 +722,6 @@ async function renderSongList() {
         `;
     }).join('');
 }
-
-            container.innerHTML = songs.map((s, index) => `
-                <div class="bg-slate-900 border border-slate-800 hover:border-amber-500/50 p-5 rounded-2xl shadow-lg flex justify-between items-center transition group">
-                    <div class="flex-1 mr-4 overflow-hidden">
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">おに</span>
-                            <span class="text-xs text-amber-400 font-bold">BPM ${s.bpm}</span>
-                        </div>
-                        <h3 class="text-lg font-black text-white truncate group-hover:text-amber-300 transition-colors">${s.title}</h3>
-                        <p class="text-xs text-slate-400 truncate">${s.subtitle || '---'}</p>
-                    </div>
-                    <button onclick="startPlaySong(${index})" class="px-5 py-3 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 font-black rounded-xl shadow-lg transform hover:scale-105 active:scale-95 transition flex items-center gap-1 shrink-0">
-                        ▶ 演奏
-                    </button>
-                </div>
-            `).join('');
-        }
 
         // Gameplay Engine Variables
         let currentSong = null;
