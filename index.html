@@ -64,6 +64,25 @@
     </style>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between select-none">
+    <!-- エラー表示用コンテナ -->
+    <div id="errorBox" class="hidden fixed inset-0 z-[200] bg-red-950/95 text-white p-6 flex flex-col justify-center items-center text-center font-mono">
+        <h2 class="text-xl font-bold text-red-400 mb-2">⚠️ 構文・実行エラーが発生しました</h2>
+        <p id="errorMessage" class="text-sm bg-black/50 p-4 rounded border border-red-500/50 max-w-2xl text-left whitespace-pre-wrap text-red-200 mb-2"></p>
+        <p class="text-xs text-red-300/80 mb-4">※問題が解決しない場合は、上記のエラー内容を添えて作成者にお問い合わせください。</p>
+        <button onclick="location.reload()" class="px-4 py-2 bg-red-600 hover:bg-red-500 rounded font-bold text-sm">再読み込み</button>
+    </div>
+
+    <script>
+    window.onerror = function(message, source, lineno, colno, error) {
+        const errorBox = document.getElementById('errorBox');
+        const errorMessage = document.getElementById('errorMessage');
+        if (errorBox && errorMessage) {
+            errorMessage.innerText = `${message}\n\n行: ${lineno} / 列: ${colno}\nファイル: ${source}`;
+            errorBox.classList.remove('hidden');
+        }
+        return false;
+    };
+    </script>
 
     <!-- Toast Notification Overlay -->
     <div id="toastNotification" class="fixed top-5 right-5 z-[120] bg-amber-500 text-slate-950 px-5 py-3 rounded-xl font-bold shadow-2xl opacity-0 pointer-events-none transition-all duration-300 transform translate-y-[-10px] flex items-center gap-2 border border-amber-300">
@@ -160,7 +179,7 @@
             </div>
         </div>
         <div class="absolute bottom-4 left-4 text-xs font-mono text-slate-200 font-bold tracking-wider">
-            Version:3.90.26.10.3-ja
+            Version:3.95.26.10.3-ja
         </div>
     </div>
     </div>
@@ -1473,6 +1492,42 @@ if (noteX > -50 && noteX < canvas.width + 50 && !note.hit) {
                 }, 400);
             }, 8000);
         }
+        window.addEventListener('load', async () => {
+        const soundFiles = [
+            { name: 'don', url: 'don.wav' },
+            { name: 'ka', url: 'ka.wav' },
+            { name: 'renda', url: 'renda.mp3' }
+        ];
+
+        let loaded = 0;
+        try {
+            for (const snd of soundFiles) {
+                await loadSoundBuffer(snd.name, snd.url);
+                loaded++;
+                const percent = Math.floor((loaded / soundFiles.length) * 100);
+                const loadingText = document.getElementById('loadingText');
+                const progressBar = document.getElementById('progressBar');
+                if (loadingText) loadingText.innerText = percent + '%';
+                if (progressBar) progressBar.style.width = percent + '%';
+            }
+
+            setTimeout(() => {
+                const overlay = document.getElementById('loadingOverlay');
+                if (overlay) overlay.classList.add('hidden');
+                if (typeof renderSongList === 'function') renderSongList();
+            }, 300);
+
+        } catch (e) {
+            const errorBox = document.getElementById('errorBox');
+            const errorMessage = document.getElementById('errorMessage');
+            if (errorBox && errorMessage) {
+                errorMessage.innerText = `音源ファイルの読み込みに失敗しました:\n${e.message || e}`;
+                errorBox.classList.remove('hidden');
+            } else {
+                console.error('音源読み込みエラー:', e);
+            }
+        }
+    });
     </script>
 </body>
 </html>
