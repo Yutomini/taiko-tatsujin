@@ -160,7 +160,7 @@
             </div>
         </div>
         <div class="absolute bottom-4 left-4 text-xs font-mono text-slate-200 font-bold tracking-wider">
-            Version3.7.26.10.3-ja
+            Version3.75.26.10.3-ja
         </div>
     </div>
     </div>
@@ -586,6 +586,52 @@
             showToast(`${addedCount} 曲を追加しました！`, '✨');
             renderSongList();
         }
+
+        function parseTJA(tjaText) {
+    const lines = tjaText.split(/\r?\n/);
+    const header = { title: '', subtitle: '', bpm: 120, wave: '', offset: 0 };
+    const courses = {}; // 全難易度の譜面データを保存
+
+    let currentCourse = 'oni';
+    let currentNotes = [];
+    let isParsingNotes = false;
+
+    for (let line of lines) {
+        line = line.trim();
+        if (!line || line.startsWith('//')) continue;
+
+        if (line.startsWith('TITLE:')) header.title = line.substring(6).trim();
+        else if (line.startsWith('SUBTITLE:')) header.subtitle = line.substring(9).trim().replace(/^--/, '');
+        else if (line.startsWith('BPM:')) header.bpm = parseFloat(line.substring(4).trim()) || 120;
+        else if (line.startsWith('WAVE:')) header.wave = line.substring(5).trim();
+        else if (line.startsWith('OFFSET:')) header.offset = parseFloat(line.substring(7).trim()) || 0;
+        else if (line.startsWith('COURSE:')) {
+            const courseVal = line.substring(7).trim().toLowerCase();
+            const courseMap = { 
+                '0': 'easy', 'easy': 'easy', 
+                '1': 'normal', 'normal': 'normal', 
+                '2': 'hard', 'hard': 'hard', 
+                '3': 'oni', 'oni': 'oni', 
+                'edit': 'edit' 
+            };
+            currentCourse = courseMap[courseVal] || 'oni';
+        } else if (line.startsWith('#START')) {
+            isParsingNotes = true;
+            currentNotes = [];
+        } else if (line.startsWith('#END')) {
+            isParsingNotes = false;
+            courses[currentCourse] = [...currentNotes];
+        } else if (isParsingNotes) {
+            currentNotes.push(line);
+        }
+    }
+
+    if (Object.keys(courses).length === 0 && currentNotes.length > 0) {
+        courses['oni'] = currentNotes;
+    }
+
+    return { ...header, courses, rawText: tjaText };
+}
 
         async function saveSong(song) {
             if (db) {
