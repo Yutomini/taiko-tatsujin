@@ -160,7 +160,7 @@
             </div>
         </div>
         <div class="absolute bottom-4 left-4 text-xs font-mono text-slate-200 font-bold tracking-wider">
-            Version3.80.26.10.3-ja
+            Version:3.85.26.10.3-ja
         </div>
     </div>
     </div>
@@ -677,50 +677,58 @@ async function renderSongList() {
         return;
     }
 
-    container.innerHTML = songs.map(song => {
-        // 利用可能な難易度を取得（デフォルトはおに）
-        const courses = song.courses || { oni: song.rawText };
-        const courseKeys = Object.keys(courses);
+container.innerHTML = songs.map(song => {
+    // courses が無い場合は rawText から各コースをパースするか、フォールバック
+    const courses = song.courses || { oni: song.rawText };
+    const courseKeys = Object.keys(courses);
 
-        // 難易度ボタンの生成
-        const difficultyMap = [
-            { key: 'easy', label: 'かんたん', color: 'bg-red-500 hover:bg-red-600' },
-            { key: 'normal', label: 'ふつう', color: 'bg-green-500 hover:bg-green-600' },
-            { key: 'hard', label: 'むずかしい', color: 'bg-blue-500 hover:bg-blue-600' },
-            { key: 'oni', label: 'おに', color: 'bg-purple-600 hover:bg-purple-700' }
-        ];
+    // 難易度の定義
+    const difficultyMap = [
+        { key: 'easy', label: 'かんたん', color: 'bg-red-500 hover:bg-red-600' },
+        { key: 'normal', label: 'ふつう', color: 'bg-green-500 hover:bg-green-600' },
+        { key: 'hard', label: 'むずかしい', color: 'bg-blue-500 hover:bg-blue-600' },
+        { key: 'oni', label: 'おに', color: 'bg-purple-600 hover:bg-purple-700' },
+        { key: 'ura', label: '裏おに', color: 'bg-indigo-600 hover:bg-indigo-700' }
+    ];
 
-        const buttonsHtml = difficultyMap.map(diff => {
-            const exists = courseKeys.includes(diff.key);
-            if (!exists && courseKeys.length > 0) return ''; // 譜面が存在しない難易度は非表示
+    // 存在する難易度のみ生成（ない場合は「おに」をデフォルト表示）
+    let buttonsHtml = difficultyMap
+        .filter(diff => courseKeys.includes(diff.key))
+        .map(diff => `
+            <button onclick="startPlaySong('${song.id}', '${diff.key}')"
+                class="px-3 py-1.5 text-xs font-bold rounded-lg text-white ${diff.color} transition shadow-md flex items-center gap-1">
+                ▶ ${diff.label}
+            </button>
+        `).join('');
 
-            return `
-                <button onclick="playSong('${song.id}', '${diff.key}')" 
-                        class="px-3 py-1.5 text-xs font-bold rounded-lg text-white ${diff.color} transition shadow-md flex items-center gap-1">
-                    ▶ ${diff.label}
-                </button>
-            `;
-        }).join('');
+    // 万が一該当するボタンが無い場合のフォールバック
+    if (!buttonsHtml) {
+        buttonsHtml = `
+            <button onclick="startPlaySong('${song.id}', 'oni')"
+                class="px-3 py-1.5 text-xs font-bold rounded-lg text-white bg-purple-600 hover:bg-purple-700 transition shadow-md flex items-center gap-1">
+                ▶ おに
+            </button>
+        `;
+    }
 
-        return `
-            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition flex flex-col justify-between">
-                <div>
-                    <div class="flex justify-between items-start mb-2">
-                        <h3 class="font-bold text-white text-lg tracking-wide">${song.title}</h3>
-                        <span class="text-xs font-mono text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">BPM ${song.bpm}</span>
-                    </div>
-                    <p class="text-xs text-slate-400 mb-4">${song.subtitle || ''}</p>
+    return `
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition flex flex-col justify-between">
+            <div>
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="font-bold text-white text-lg tracking-wide">${song.title}</h3>
+                    <span class="text-xs font-mono text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">BPM ${song.bpm}</span>
                 </div>
-                
-                <div>
-                    <p class="text-xs text-slate-500 font-bold mb-2">難易度を選んで演奏:</p>
-                    <div class="flex flex-wrap gap-2">
-                        ${buttonsHtml || `<button onclick="playSong('${song.id}', 'oni')" class="px-3 py-1.5 text-xs font-bold rounded-lg text-white bg-purple-600 hover:bg-purple-700 transition">▶ 演奏開始</button>`}
-                    </div>
+                <p class="text-xs text-slate-400 mb-4">${song.subtitle || '---'}</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-500 font-bold mb-2">難易度を選んで演奏:</p>
+                <div class="flex flex-wrap gap-2">
+                    ${buttonsHtml}
                 </div>
             </div>
-        `;
-    }).join('');
+        </div>
+    `;
+}).join('');
 }
 
         // Gameplay Engine Variables
