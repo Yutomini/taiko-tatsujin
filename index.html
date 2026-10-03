@@ -179,7 +179,7 @@
             </div>
         </div>
         <div class="absolute bottom-4 left-4 text-xs font-mono text-slate-200 font-bold tracking-wider">
-            Version 3.97.26.10.3-ja
+            Version 3.98.26.10.3-ja
         </div>
     </div>
     </div>
@@ -1511,10 +1511,13 @@ if (noteX > -50 && noteX < canvas.width + 50 && !note.hit) {
                 if (progressBar) progressBar.style.width = percent + '%';
             }
 
+            if (typeof renderSongList === 'function') {
+                renderSongList();
+            }
+
             setTimeout(() => {
                 const overlay = document.getElementById('loadingOverlay');
                 if (overlay) overlay.classList.add('hidden');
-                if (typeof renderSongList === 'function') renderSongList();
             }, 300);
 
         } catch (e) {
