@@ -179,7 +179,7 @@
             </div>
         </div>
         <div class="absolute bottom-4 left-4 text-xs font-mono text-slate-200 font-bold tracking-wider">
-            Version 4.15.26.10.4-ja
+            Version 4.16.26.10.4-ja
         </div>
     </div>
 
@@ -638,7 +638,7 @@
             renderSongList();
         }
 
-        function parseTJA(tjaText) {
+function parseTJA(tjaText) {
             const lines = tjaText.split(/\r?\n/);
             const header = { title: '', subtitle: '', bpm: 120, wave: '', offset: 0 };
             const courses = {};
@@ -651,25 +651,25 @@
                 line = line.trim();
                 if (!line || line.startsWith('//')) continue;
 
-                if (line.startsWith('TITLE:')) header.title = line.substring(6).trim();
-                else if (line.startsWith('SUBTITLE:')) header.subtitle = line.substring(9).trim().replace(/^--/, '');
-                else if (line.startsWith('BPM:')) header.bpm = parseFloat(line.substring(4).trim()) || 120;
-                else if (line.startsWith('WAVE:')) header.wave = line.substring(5).trim();
-                else if (line.startsWith('OFFSET:')) header.offset = parseFloat(line.substring(7).trim()) || 0;
-                else if (line.startsWith('COURSE:')) {
+                if (line.toUpperCase().startsWith('TITLE:')) header.title = line.substring(6).trim();
+                else if (line.toUpperCase().startsWith('SUBTITLE:')) header.subtitle = line.substring(9).trim().replace(/^--/, '');
+                else if (line.toUpperCase().startsWith('BPM:')) header.bpm = parseFloat(line.substring(4).trim()) || 120;
+                else if (line.toUpperCase().startsWith('WAVE:')) header.wave = line.substring(5).trim();
+                else if (line.toUpperCase().startsWith('OFFSET:')) header.offset = parseFloat(line.substring(7).trim()) || 0;
+                else if (line.toUpperCase().startsWith('COURSE:')) {
                     const courseVal = line.substring(7).trim().toLowerCase();
                     const courseMap = { 
                         '0': 'easy', 'easy': 'easy', 
                         '1': 'normal', 'normal': 'normal', 
                         '2': 'hard', 'hard': 'hard', 
                         '3': 'oni', 'oni': 'oni', 
-                        'edit': 'ura', 'ura': 'ura'
+                        '4': 'ura', 'edit': 'ura', 'ura': 'ura'
                     };
                     currentCourse = courseMap[courseVal] || 'oni';
-                } else if (line.startsWith('#START')) {
+                } else if (line.toUpperCase().startsWith('#START')) {
                     isParsingNotes = true;
                     currentNotes = [];
-                } else if (line.startsWith('#END')) {
+                } else if (line.toUpperCase().startsWith('#END')) {
                     isParsingNotes = false;
                     courses[currentCourse] = [...currentNotes];
                 } else if (isParsingNotes) {
