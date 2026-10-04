@@ -179,7 +179,7 @@
             </div>
         </div>
         <div class="absolute bottom-4 left-4 text-xs font-mono text-slate-200 font-bold tracking-wider">
-            Version 4.14.26.10.4-ja
+            Version 4.15.26.10.4-ja
         </div>
     </div>
 
@@ -855,8 +855,16 @@
             if (!currentSong) return;
 
             currentDiff = diffKey;
-            const courses = parseTJACourses(currentSong.rawText || '');
-            const courseText = courses[diffKey] || currentSong.rawText || '';
+// parseTJA で解析済みのコースデータがあればそちらを優先、なければ rawText から取得
+            const parsed = parseTJA(currentSong.rawText || '');
+            let courseText = '';
+
+            if (parsed.courses && parsed.courses[diffKey]) {
+                courseText = parsed.courses[diffKey].join('\n');
+            } else {
+                const courses = parseTJACourses(currentSong.rawText || '');
+                courseText = courses[diffKey] || currentSong.rawText || '';
+            }
 
             parseChartNotes(courseText, currentSong.bpm || 120);
             songOffset = currentSong.offset || 0;
