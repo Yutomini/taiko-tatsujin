@@ -86,7 +86,7 @@
 
     <!-- Toast Notification Overlay -->
     <div id="toastNotification" class="fixed top-5 right-5 z-[120] bg-amber-500 text-slate-950 px-5 py-3 rounded-xl font-bold shadow-2xl opacity-0 pointer-events-none transition-all duration-300 transform translate-y-[-10px] flex items-center gap-2 border border-amber-300">
-        <span id="toastIcon">ℹ️️</span>
+        <span id="toastIcon">ℹ</span>
         <span id="toastMessage">通知メッセージ</span>
     </div>
 
@@ -179,9 +179,8 @@
             </div>
         </div>
         <div class="absolute bottom-4 left-4 text-xs font-mono text-slate-200 font-bold tracking-wider">
-            Version 3.98.26.10.3-ja
+            Version 4.05.26.10.4-ja
         </div>
-    </div>
     </div>
 
     <!-- Main App Container -->
@@ -244,6 +243,7 @@
                     <div>
                         <div class="flex items-center gap-2">
                             <h2 id="playSongTitle" class="text-2xl font-black text-amber-300">曲名未選択</h2>
+                            <span id="playSongCourse" class="text-xs font-black px-2 py-0.5 rounded text-white bg-amber-500">ONI</span>
                             <span id="gogoTimeBadge" class="hidden bg-yellow-500 text-slate-950 font-black text-xs px-2.5 py-0.5 rounded-full animate-pulse">GOGO TIME!</span>
                         </div>
                         <p id="playSongSub" class="text-xs text-slate-400 mt-0.5">---</p>
@@ -369,9 +369,6 @@
                 soundBuffers[name] = audioBuffer;
             } catch (err) {
                 console.log(`Audio buffer fallback for: ${name}`);
-                if (['don', 'ka'].includes(name)) {
-                    showToast('効果音ファイルが見つからないため簡易SEで再生します', '⚠️');
-                }
             }
         }
 
@@ -451,6 +448,7 @@
         let inMemorySongs = [];
         let db = null;
         let inputMode = 'keyboard';
+        let currentDiff = 'oni';
 
         function showToast(msg, icon = 'ℹ') {
             const toast = document.getElementById('toastNotification');
@@ -525,7 +523,6 @@
             }, 500);
         }
 
-        // 【修正】キーガイドUI表示を D / F / J / K に修正
         function setupInputUI() {
             const container = document.getElementById('inputUIContainer');
             if (inputMode === 'touch') {
@@ -622,8 +619,9 @@
                         title: parsed.title || tjaFile.name.replace('.tja', ''),
                         subtitle: parsed.subtitle || '',
                         bpm: parsed.bpm || 120,
+                        offset: parsed.offset || 0,
                         waveName: matchedAudio ? matchedAudio.name : '',
-                        tjaText: text,
+                        rawText: text,
                         audioData: audioData,
                         highScore: 0,
                         maxComboRecord: 0
@@ -641,50 +639,50 @@
         }
 
         function parseTJA(tjaText) {
-    const lines = tjaText.split(/\r?\n/);
-    const header = { title: '', subtitle: '', bpm: 120, wave: '', offset: 0 };
-    const courses = {}; // 全難易度の譜面データを保存
+            const lines = tjaText.split(/\r?\n/);
+            const header = { title: '', subtitle: '', bpm: 120, wave: '', offset: 0 };
+            const courses = {};
 
-    let currentCourse = 'oni';
-    let currentNotes = [];
-    let isParsingNotes = false;
+            let currentCourse = 'oni';
+            let currentNotes = [];
+            let isParsingNotes = false;
 
-    for (let line of lines) {
-        line = line.trim();
-        if (!line || line.startsWith('//')) continue;
+            for (let line of lines) {
+                line = line.trim();
+                if (!line || line.startsWith('//')) continue;
 
-        if (line.startsWith('TITLE:')) header.title = line.substring(6).trim();
-        else if (line.startsWith('SUBTITLE:')) header.subtitle = line.substring(9).trim().replace(/^--/, '');
-        else if (line.startsWith('BPM:')) header.bpm = parseFloat(line.substring(4).trim()) || 120;
-        else if (line.startsWith('WAVE:')) header.wave = line.substring(5).trim();
-        else if (line.startsWith('OFFSET:')) header.offset = parseFloat(line.substring(7).trim()) || 0;
-        else if (line.startsWith('COURSE:')) {
-            const courseVal = line.substring(7).trim().toLowerCase();
-            const courseMap = { 
-                '0': 'easy', 'easy': 'easy', 
-                '1': 'normal', 'normal': 'normal', 
-                '2': 'hard', 'hard': 'hard', 
-                '3': 'oni', 'oni': 'oni', 
-                'edit': 'edit' 
-            };
-            currentCourse = courseMap[courseVal] || 'oni';
-        } else if (line.startsWith('#START')) {
-            isParsingNotes = true;
-            currentNotes = [];
-        } else if (line.startsWith('#END')) {
-            isParsingNotes = false;
-            courses[currentCourse] = [...currentNotes];
-        } else if (isParsingNotes) {
-            currentNotes.push(line);
+                if (line.startsWith('TITLE:')) header.title = line.substring(6).trim();
+                else if (line.startsWith('SUBTITLE:')) header.subtitle = line.substring(9).trim().replace(/^--/, '');
+                else if (line.startsWith('BPM:')) header.bpm = parseFloat(line.substring(4).trim()) || 120;
+                else if (line.startsWith('WAVE:')) header.wave = line.substring(5).trim();
+                else if (line.startsWith('OFFSET:')) header.offset = parseFloat(line.substring(7).trim()) || 0;
+                else if (line.startsWith('COURSE:')) {
+                    const courseVal = line.substring(7).trim().toLowerCase();
+                    const courseMap = { 
+                        '0': 'easy', 'easy': 'easy', 
+                        '1': 'normal', 'normal': 'normal', 
+                        '2': 'hard', 'hard': 'hard', 
+                        '3': 'oni', 'oni': 'oni', 
+                        'edit': 'ura', 'ura': 'ura'
+                    };
+                    currentCourse = courseMap[courseVal] || 'oni';
+                } else if (line.startsWith('#START')) {
+                    isParsingNotes = true;
+                    currentNotes = [];
+                } else if (line.startsWith('#END')) {
+                    isParsingNotes = false;
+                    courses[currentCourse] = [...currentNotes];
+                } else if (isParsingNotes) {
+                    currentNotes.push(line);
+                }
+            }
+
+            if (Object.keys(courses).length === 0 && currentNotes.length > 0) {
+                courses['oni'] = currentNotes;
+            }
+
+            return { ...header, courses, rawText: tjaText };
         }
-    }
-
-    if (Object.keys(courses).length === 0 && currentNotes.length > 0) {
-        courses['oni'] = currentNotes;
-    }
-
-    return { ...header, courses, rawText: tjaText };
-}
 
         async function saveSong(song) {
             if (db) {
@@ -715,68 +713,65 @@
             }
             return inMemorySongs;
         }
-async function renderSongList() {
-    const songs = await getSavedSongs();
-    const container = document.getElementById('songListContainer');
-    document.getElementById('songCountDisplay').innerText = songs.length;
 
-    if (songs.length === 0) {
-        container.innerHTML = `
-            <div class="col-span-full py-12 text-center text-slate-500 font-bold border border-slate-800 rounded-2xl bg-slate-900/30">
-                曲が登録されていません。TJAと音源をドロップしてください。
-            </div>
-        `;
-        return;
-    }
+        async function renderSongList() {
+            const songs = await getSavedSongs();
+            const container = document.getElementById('songListContainer');
+            document.getElementById('songCountDisplay').innerText = songs.length;
 
-    container.innerHTML = songs.map(song => {
-        // TJAを解析してコースを取得（すでに保存済みならそれを使用）
-        const courses = song.courses || parseTJACourses(song.rawText);
-        const availableKeys = Object.keys(courses);
+            if (songs.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full py-12 text-center text-slate-500 font-bold border border-slate-800 rounded-2xl bg-slate-900/30">
+                        曲が登録されていません。TJAと音源をドロップしてください。
+                    </div>
+                `;
+                return;
+            }
 
-        const difficultyMap = [
-            { key: 'easy', label: 'かんたん', color: 'bg-red-500 hover:bg-red-600' },
-            { key: 'normal', label: 'ふつう', color: 'bg-green-500 hover:bg-green-600' },
-            { key: 'hard', label: 'むずかしい', color: 'bg-blue-500 hover:bg-blue-600' },
-            { key: 'oni', label: 'おに', color: 'bg-purple-600 hover:bg-purple-700' },
-            { key: 'ura', label: '裏おに', color: 'bg-indigo-600 hover:bg-indigo-700' }
-        ];
+            container.innerHTML = songs.map(song => {
+                const courses = parseTJACourses(song.rawText || '');
+                const availableKeys = Object.keys(courses);
 
-        // 存在するコースのボタンだけを生成
-        let buttonsHtml = difficultyMap
-            .filter(diff => availableKeys.includes(diff.key))
-            .map(diff => `
-                <button onclick="startPlaySong('${song.id}', '${diff.key}')"
-                    class="px-3 py-1.5 text-xs font-bold rounded-lg text-white ${diff.color} transition shadow-md flex items-center gap-1">
-                    ▶ ${diff.label}
-                </button>
-            `).join('');
+                const difficultyMap = [
+                    { key: 'easy', label: 'かんたん', color: 'bg-red-500 hover:bg-red-600' },
+                    { key: 'normal', label: 'ふつう', color: 'bg-green-500 hover:bg-green-600' },
+                    { key: 'hard', label: 'むずかしい', color: 'bg-blue-500 hover:bg-blue-600' },
+                    { key: 'oni', label: 'おに', color: 'bg-purple-600 hover:bg-purple-700' },
+                    { key: 'ura', label: '裏おに', color: 'bg-indigo-600 hover:bg-indigo-700' }
+                ];
 
-        if (!buttonsHtml) {
-            buttonsHtml = `<button onclick="startPlaySong('${song.id}', 'oni')" class="px-3 py-1.5 text-xs font-bold rounded-lg text-white bg-purple-600">▶ おに</button>`;
+                let buttonsHtml = difficultyMap
+                    .filter(diff => availableKeys.includes(diff.key))
+                    .map(diff => `
+                        <button onclick="startPlaySong('${song.id}', '${diff.key}')"
+                            class="px-3 py-1.5 text-xs font-bold rounded-lg text-white ${diff.color} transition shadow-md flex items-center gap-1">
+                            ▶ ${diff.label}
+                        </button>
+                    `).join('');
+
+                if (!buttonsHtml) {
+                    buttonsHtml = `<button onclick="startPlaySong('${song.id}', 'oni')" class="px-3 py-1.5 text-xs font-bold rounded-lg text-white bg-purple-600">▶ おに</button>`;
+                }
+
+                return `
+                    <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="font-bold text-white text-lg tracking-wide">${song.title}</h3>
+                                <span class="text-xs font-mono text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">BPM ${song.bpm}</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mb-4">${song.subtitle || '---'}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-500 font-bold mb-2">難易度を選んで演奏:</p>
+                            <div class="flex flex-wrap gap-2">
+                                ${buttonsHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
-
-        return `
-            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition flex flex-col justify-between">
-                <div>
-                    <div class="flex justify-between items-start mb-2">
-                        <h3 class="font-bold text-white text-lg tracking-wide">${song.title}</h3>
-                        <span class="text-xs font-mono text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">BPM ${song.bpm}</span>
-                    </div>
-                    <p class="text-xs text-slate-400 mb-4">${song.subtitle || '---'}</p>
-                </div>
-                <div>
-                    <p class="text-xs text-slate-500 font-bold mb-2">難易度を選んで演奏:</p>
-                    <div class="flex flex-wrap gap-2">
-                        ${buttonsHtml}
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-
 
         // Gameplay Engine Variables
         let currentSong = null;
@@ -840,49 +835,74 @@ async function renderSongList() {
             }
         }
 
-async function startPlaySong(songId, diffKey = 'oni') {
-        if (animationFrameId) {
-            cancelAnimationFrame(animationFrameId);
-            animationFrameId = null;
-        }
-        if (songAudioSource) {
-            try { songAudioSource.stop(); } catch(e) {}
-            songAudioSource = null;
-        }
+        async function startPlaySong(songId, diffKey = 'oni') {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            if (songAudioSource) {
+                try { songAudioSource.stop(); } catch(e) {}
+                songAudioSource = null;
+            }
 
-        const songs = await getSavedSongs();
-        // ID検索（IDがない場合はインデックス互換）
-        currentSong = songs.find(s => String(s.id) === String(songId)) || songs[songId];
-        if (!currentSong) return;
+            const songs = await getSavedSongs();
+            currentSong = songs.find(s => String(s.id) === String(songId)) || songs[songId];
+            if (!currentSong) return;
 
-        currentDiff = diffKey;
+            currentDiff = diffKey;
+            const courses = parseTJACourses(currentSong.rawText || '');
+            const courseText = courses[diffKey] || currentSong.rawText || '';
 
-        // 難易度別コースの取得
-        const courses = currentSong.courses || (typeof parseTJACourses === 'function' ? parseTJACourses(currentSong.rawText || currentSong.tjaText || '') : {});
-        const courseText = courses[diffKey] || currentSong.rawText || currentSong.tjaText || '';
+            parseChartNotes(courseText, currentSong.bpm || 120);
+            songOffset = currentSong.offset || 0;
 
-        // 譜面の解析
-        if (typeof parseTJATimeChart === 'function') {
-            activeNotes = parseTJATimeChart(courseText, currentSong.bpm, currentSong.offset || 0);
-        }
+            // リセットスコア関連パラメータ
+            score = 0; combo = 0; maxCombo = 0;
+            goodCount = 0; okCount = 0; badCount = 0;
+            soulGauge = 0;
+            isGoGoTime = false;
+            hitEffects = [];
+            totalPauseDuration = 0;
 
-        stopSelectionBGM();
-        switchView('play');
+            updateHUD();
+            resizeCanvas();
 
-        document.getElementById('playSongTitle').innerText = currentSong.title;
-        document.getElementById('playSongSub').innerText = currentSong.subtitle || '';
-        document.getElementById('resultOverlay').classList.add('hidden');
-        document.getElementById('pauseOverlay').classList.add('hidden');
+            stopSelectionBGM();
+            switchView('play');
 
-        // 難易度表示の更新
-        const courseEl = document.getElementById('playSongCourse');
-        if (courseEl) {
-            courseEl.innerText = diffKey.toUpperCase();
-            const diffColors = {
-                easy: 'bg-red-500', normal: 'bg-emerald-500', hard: 'bg-sky-500', oni: 'bg-purple-600', ura: 'bg-indigo-600'
-            };
-            courseEl.className = `text-[10px] md:text-xs font-black px-2 py-0.5 rounded-md uppercase tracking-wider text-white ${diffColors[diffKey] || 'bg-amber-500'}`;
-        }
+            document.getElementById('playSongTitle').innerText = currentSong.title;
+            document.getElementById('playSongSub').innerText = currentSong.subtitle || '';
+            document.getElementById('resultOverlay').classList.add('hidden');
+            document.getElementById('pauseOverlay').classList.add('hidden');
+
+            const courseEl = document.getElementById('playSongCourse');
+            if (courseEl) {
+                courseEl.innerText = diffKey.toUpperCase();
+                const diffColors = {
+                    easy: 'bg-red-500', normal: 'bg-emerald-500', hard: 'bg-sky-500', oni: 'bg-purple-600', ura: 'bg-indigo-600'
+                };
+                courseEl.className = `text-[10px] md:text-xs font-black px-2 py-0.5 rounded-md uppercase tracking-wider text-white ${diffColors[diffKey] || 'bg-amber-500'}`;
+            }
+
+            // 音源再生
+            initAudioContext();
+            if (currentSong.audioData) {
+                try {
+                    const decodedBuffer = await audioCtx.decodeAudioData(currentSong.audioData.slice(0));
+                    songAudioSource = audioCtx.createBufferSource();
+                    songAudioSource.buffer = decodedBuffer;
+                    songAudioSource.connect(audioCtx.destination);
+                    audioStartTime = audioCtx.currentTime;
+                    songAudioSource.start(0);
+                } catch(e) {
+                    console.error("Audio playback error:", e);
+                }
+            }
+
+            isPlaying = true;
+            isPaused = false;
+            playStartSystemTime = performance.now();
+            requestAnimationFrame(gameLoop);
         }
 
         function togglePauseGame() {
@@ -1140,42 +1160,41 @@ async function startPlaySong(songId, diffKey = 'oni') {
                     updateHUD();
                 }
 
-if (noteX > -50 && noteX < canvas.width + 50 && !note.hit) {
-    const radius = ['3', '4', '6'].includes(note.type) ? 38 : 28;
+                if (noteX > -50 && noteX < canvas.width + 50 && !note.hit) {
+                    const radius = ['3', '4', '6'].includes(note.type) ? 38 : 28;
 
-    // 【追加】黄色連打(5)・大連打(6)の帯（伸びるバー）を描画
-    if (['5', '6'].includes(note.type)) {
-        // 終点(8)までの位置（計算値がなければ固定長）
-        const endX = note.endX ? (note.endX - (currentTime - note.time) * speed) : (noteX + 120);
-        const barWidth = Math.max(0, endX - noteX);
+                    // 黄色連打(5)・大連打(6)の帯描画
+                    if (['5', '6'].includes(note.type)) {
+                        const endX = targetX + (note.endTime - currentTime) * noteSpeed;
+                        const barWidth = Math.max(0, endX - noteX);
 
-        if (barWidth > 0) {
-            ctx.fillStyle = note.type === '6' ? '#FFD700' : '#FBBF24';
-            ctx.beginPath();
-            if (ctx.roundRect) {
-                ctx.roundRect(noteX, targetY - radius, barWidth, radius * 2, radius);
-            } else {
-                ctx.rect(noteX, targetY - radius, barWidth, radius * 2);
-            }
-            ctx.fill();
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 3;
-            ctx.stroke();
-        }
-    }
+                        if (barWidth > 0) {
+                            ctx.fillStyle = note.type === '6' ? '#FFD700' : '#FBBF24';
+                            ctx.beginPath();
+                            if (ctx.roundRect) {
+                                ctx.roundRect(noteX, targetY - radius, barWidth, radius * 2, radius);
+                            } else {
+                                ctx.rect(noteX, targetY - radius, barWidth, radius * 2);
+                            }
+                            ctx.fill();
+                            ctx.strokeStyle = '#ffffff';
+                            ctx.lineWidth = 3;
+                            ctx.stroke();
+                        }
+                    }
 
-    // 先頭の丸ノーツを描画
-    ctx.beginPath();
-    ctx.arc(noteX, targetY, radius, 0, Math.PI * 2);
+                    // ノーツ描画
+                    ctx.beginPath();
+                    ctx.arc(noteX, targetY, radius, 0, Math.PI * 2);
 
-    if (['1', '3'].includes(note.type)) ctx.fillStyle = '#ef4444';
-    else if (['2', '4'].includes(note.type)) ctx.fillStyle = '#06b6d4';
-    else ctx.fillStyle = '#f59e0b';
+                    if (['1', '3'].includes(note.type)) ctx.fillStyle = '#ef4444';
+                    else if (['2', '4'].includes(note.type)) ctx.fillStyle = '#06b6d4';
+                    else ctx.fillStyle = '#f59e0b';
 
-    ctx.fill();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 3;
-    ctx.stroke();
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
 
                     if (['7','9'].includes(note.type) && currentTime >= note.time && !note.kusdmaBroken) {
                         const remaining = Math.max(0, note.requiredRolls - note.rollCount);
@@ -1413,7 +1432,7 @@ if (noteX > -50 && noteX < canvas.width + 50 && !note.hit) {
             stopSongPlay();
         }
 
-        // 【修正】キー入力イベント判定を D / F / J / K に変更
+        // キー入力イベント判定（D / F / J / K）
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && isPlaying) {
                 togglePauseGame();
@@ -1422,7 +1441,6 @@ if (noteX > -50 && noteX < canvas.width + 50 && !note.hit) {
             if (!isPlaying || isPaused) return;
             const key = e.key.toLowerCase();
 
-            // D / K で カッ、 F / J で ドン
             if (key === 'd') triggerDrumHit('ka', 'left');
             if (key === 'f') triggerDrumHit('don', 'left');
             if (key === 'j') triggerDrumHit('don', 'right');
@@ -1454,11 +1472,9 @@ if (noteX > -50 && noteX < canvas.width + 50 && !note.hit) {
                 progressText.innerText = `${Math.floor(progress)}%`;
             };
 
-            setTimeout(() => updateProgress(14), 1000);
-            setTimeout(() => updateProgress(35), 2500);
-            setTimeout(() => updateProgress(59), 4200);
-            setTimeout(() => updateProgress(81), 6000);
-            setTimeout(() => updateProgress(94), 7200);
+            setTimeout(() => updateProgress(20), 400);
+            setTimeout(() => updateProgress(50), 800);
+            setTimeout(() => updateProgress(85), 1200);
 
             setTimeout(() => {
                 updateProgress(100);
@@ -1487,50 +1503,11 @@ if (noteX > -50 && noteX < canvas.width + 50 && !note.hit) {
                                     titleScreen.style.opacity = '1';
                                 }, 50);
                             }, 700);
-                        }, 3000);
+                        }, 1200);
                     }, 600);
-                }, 400);
-            }, 8000);
+                }, 300);
+            }, 1600);
         }
-        window.addEventListener('load', async () => {
-        const soundFiles = [
-            { name: 'don', url: 'don.wav' },
-            { name: 'ka', url: 'ka.wav' },
-            { name: 'renda', url: 'renda.mp3' }
-        ];
-
-        let loaded = 0;
-        try {
-            for (const snd of soundFiles) {
-                await loadSoundBuffer(snd.name, snd.url);
-                loaded++;
-                const percent = Math.floor((loaded / soundFiles.length) * 100);
-                const loadingText = document.getElementById('loadingText');
-                const progressBar = document.getElementById('progressBar');
-                if (loadingText) loadingText.innerText = percent + '%';
-                if (progressBar) progressBar.style.width = percent + '%';
-            }
-
-            if (typeof renderSongList === 'function') {
-                renderSongList();
-            }
-
-            setTimeout(() => {
-                const overlay = document.getElementById('loadingOverlay');
-                if (overlay) overlay.classList.add('hidden');
-            }, 300);
-
-        } catch (e) {
-            const errorBox = document.getElementById('errorBox');
-            const errorMessage = document.getElementById('errorMessage');
-            if (errorBox && errorMessage) {
-                errorMessage.innerText = `音源ファイルの読み込みに失敗しました:\n${e.message || e}`;
-                errorBox.classList.remove('hidden');
-            } else {
-                console.error('音源読み込みエラー:', e);
-            }
-        }
-    });
     </script>
 </body>
 </html>
