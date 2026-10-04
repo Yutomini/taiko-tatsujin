@@ -811,15 +811,6 @@
             }
         });
 
-function resizeCanvas() {
-    if (canvas && canvas.parentElement) {
-        const rect = canvas.parentElement.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-            canvas.width = rect.width;
-            canvas.height = rect.height;
-        }
-    }
-}
         window.addEventListener('resize', resizeCanvas);
 
         function switchView(view) {
