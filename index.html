@@ -802,6 +802,16 @@
         const canvas = document.getElementById('taikoCanvas');
         const ctx = canvas ? canvas.getContext('2d') : null;
 
+        function resizeCanvas() {
+            if (canvas && canvas.parentElement) {
+                const rect = canvas.parentElement.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) {
+                    canvas.width = rect.width;
+                    canvas.height = rect.height;
+                }
+            }
+        }
+
         document.addEventListener('visibilitychange', () => {
             const isBgmMode = document.getElementById('bgmModeToggle')?.checked;
             if (document.hidden && isPlaying && !isPaused) {
