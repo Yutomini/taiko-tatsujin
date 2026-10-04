@@ -179,7 +179,7 @@
             </div>
         </div>
         <div class="absolute bottom-4 left-4 text-xs font-mono text-slate-200 font-bold tracking-wider">
-            Version 4.05.26.10.4-ja
+            Version 4.10.26.10.4-ja
         </div>
     </div>
 
@@ -811,12 +811,15 @@
             }
         });
 
-        function resizeCanvas() {
-            if (canvas && canvas.clientWidth && canvas.clientHeight) {
-                canvas.width = canvas.clientWidth;
-                canvas.height = canvas.clientHeight;
-            }
+function resizeCanvas() {
+    if (canvas && canvas.parentElement) {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+            canvas.width = rect.width;
+            canvas.height = rect.height;
         }
+    }
+}
         window.addEventListener('resize', resizeCanvas);
 
         function switchView(view) {
@@ -832,6 +835,7 @@
                 document.getElementById('navPlayBtn').classList.add('bg-amber-500/20', 'text-amber-300', 'border-amber-500/40');
                 document.getElementById('navSongListBtn').classList.remove('bg-amber-500/20', 'text-amber-300', 'border-amber-500/40');
                 stopSelectionBGM();
+                setTimeout(resizeCanvas, 50);
             }
         }
 
