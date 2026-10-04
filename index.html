@@ -179,7 +179,7 @@
             </div>
         </div>
         <div class="absolute bottom-4 left-4 text-xs font-mono text-slate-200 font-bold tracking-wider">
-            Version 4.10.26.10.4-ja
+            Version 4.12.26.10.4-ja
         </div>
     </div>
 
@@ -949,7 +949,7 @@ function resizeCanvas() {
             switchView('select');
         }
 
-        // TJA Parser
+// TJA Parser
         function parseChartNotes(tjaText, baseBPM) {
             gameNotes = [];
             const lines = tjaText.split(/\r?\n/);
@@ -963,34 +963,32 @@ function resizeCanvas() {
 
             let activeRolls = [];
 
-            for (let line of lines) {
-                line = line.trim();
-                if (line === '#START') { inHeader = false; continue; }
+            for (let rawLine of lines) {
+                // コメント（//...）を除去して前後トリム
+                let line = rawLine.split('//')[0].trim();
+                if (!line) continue;
+
+                if (line === '#START') { inHeader = false; currentMeasure = []; continue; }
                 if (line === '#END') break;
                 if (inHeader) continue;
 
                 if (line.startsWith('#BPMCHANGE')) {
-                    currentBPM = parseFloat(line.split(' ')[1]) || currentBPM;
+                    const bpmVal = parseFloat(line.replace('#BPMCHANGE', '').trim());
+                    if (!isNaN(bpmVal) && bpmVal > 0) currentBPM = bpmVal;
                     continue;
                 }
 
                 if (line.startsWith('#SCROLL')) {
-                    currentScroll = parseFloat(line.split(' ')[1]) || 1.0;
+                    const scrollVal = parseFloat(line.replace('#SCROLL', '').trim());
+                    if (!isNaN(scrollVal)) currentScroll = scrollVal;
                     continue;
                 }
 
-                if (line.startsWith('#GOGOSTART')) {
-                    currentGogo = true;
-                    continue;
-                }
-
-                if (line.startsWith('#GOGOEND')) {
-                    currentGogo = false;
-                    continue;
-                }
+                if (line.startsWith('#GOGOSTART')) { currentGogo = true; continue; }
+                if (line.startsWith('#GOGOEND')) { currentGogo = false; continue; }
 
                 if (line.startsWith('#MEASURE')) {
-                    const parts = line.split(' ')[1];
+                    const parts = line.replace('#MEASURE', '').trim();
                     if (parts && parts.includes('/')) {
                         const [num, den] = parts.split('/').map(Number);
                         if (num > 0 && den > 0) measureRatio = num / den;
@@ -998,49 +996,59 @@ function resizeCanvas() {
                     continue;
                 }
 
-                if (line.includes(',')) {
-                    const parts = line.split(',');
-                    currentMeasure.push(parts[0]);
+                // その他の命令文（#で始まる行）はスキップ
+                if (line.startsWith('#')) continue;
+
+                // 譜面データの解析（カンマが含まれているか判断）
+                const hasComma = line.includes(',');
+                const notePart = hasComma ? line.split(',')[0].trim() : line;
+                
+                if (notePart.length > 0) {
+                    currentMeasure.push(notePart);
+                }
+
+                // カンマがあれば1小節の確定処理
+                if (hasComma) {
                     const measureStr = currentMeasure.join('');
                     const noteCount = measureStr.length;
                     const measureDuration = (60 / currentBPM) * 4 * measureRatio;
 
-                    for (let i = 0; i < noteCount; i++) {
-                        const char = measureStr[i];
-                        const time = totalTime + (i / noteCount) * measureDuration;
+                    if (noteCount > 0) {
+                        for (let i = 0; i < noteCount; i++) {
+                            const char = measureStr[i];
+                            const time = totalTime + (i / noteCount) * measureDuration;
 
-                        if (['1','2','3','4','5','6','7','9'].includes(char)) {
-                            const noteObj = {
-                                type: char,
-                                time: time,
-                                endTime: time + 0.3,
-                                scrollSpeed: currentScroll,
-                                isGogo: currentGogo,
-                                hit: false,
-                                missed: false,
-                                hitTime: 0,
-                                rendaStarted: false,
-                                kusdmaBroken: false,
-                                rollCount: 0,
-                                requiredRolls: ['7','9'].includes(char) ? 12 : 999
-                            };
-                            gameNotes.push(noteObj);
+                            if (['1','2','3','4','5','6','7','9'].includes(char)) {
+                                const noteObj = {
+                                    type: char,
+                                    time: time,
+                                    endTime: time + 0.3,
+                                    scrollSpeed: currentScroll,
+                                    isGogo: currentGogo,
+                                    hit: false,
+                                    missed: false,
+                                    hitTime: 0,
+                                    rendaStarted: false,
+                                    kusdmaBroken: false,
+                                    rollCount: 0,
+                                    requiredRolls: ['7','9'].includes(char) ? 12 : 999
+                                };
+                                gameNotes.push(noteObj);
 
-                            if (['5','6','7','9'].includes(char)) {
-                                activeRolls.push(noteObj);
-                            }
-                        } else if (char === '8') {
-                            if (activeRolls.length > 0) {
-                                const lastRoll = activeRolls.pop();
-                                lastRoll.endTime = time;
+                                if (['5','6','7','9'].includes(char)) {
+                                    activeRolls.push(noteObj);
+                                }
+                            } else if (char === '8') {
+                                if (activeRolls.length > 0) {
+                                    const lastRoll = activeRolls.pop();
+                                    lastRoll.endTime = time;
+                                }
                             }
                         }
                     }
 
                     totalTime += measureDuration;
                     currentMeasure = [];
-                } else if (line.length > 0 && !line.startsWith('#')) {
-                    currentMeasure.push(line);
                 }
             }
         }
