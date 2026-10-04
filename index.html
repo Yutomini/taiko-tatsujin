@@ -179,7 +179,7 @@
             </div>
         </div>
         <div class="absolute bottom-4 left-4 text-xs font-mono text-slate-200 font-bold tracking-wider">
-            Version 4.17.26.10.4-ja
+            Version 4.18.26.10.4-ja
         </div>
     </div>
 
@@ -310,37 +310,13 @@
     </div>
 
     <script>
-        // TJAテキストを COURSE: ごとに分割する関数
         function parseTJACourses(tjaText) {
+            const parsed = parseTJA(tjaText);
             const courses = {};
-            const lines = tjaText.split(/\r?\n/);
-            let currentCourse = 'oni';
-            let buffer = [];
-
-            const courseMap = {
-                '0': 'easy', 'easy': 'easy',
-                '1': 'normal', 'normal': 'normal',
-                '2': 'hard', 'hard': 'hard',
-                '3': 'oni', 'oni': 'oni',
-                '4': 'ura', 'edit': 'ura', 'ura': 'ura'
-            };
-
-            for (const line of lines) {
-                const trimmed = line.trim();
-                if (trimmed.toUpperCase().startsWith('COURSE:')) {
-                    if (buffer.length > 0) {
-                        courses[currentCourse] = buffer.join('\n');
-                        buffer = [];
-                    }
-                    const raw = trimmed.split(':')[1].trim().toLowerCase();
-                    currentCourse = courseMap[raw] || 'oni';
-                } else {
-                    buffer.push(line);
-                }
+            for (const k in parsed.courses) {
+                courses[k] = parsed.courses[k].join('\n');
             }
-            if (buffer.length > 0) courses[currentCourse] = buffer.join('\n');
             if (Object.keys(courses).length === 0) courses['oni'] = tjaText;
-
             return courses;
         }
 
@@ -638,7 +614,7 @@
             renderSongList();
         }
 
-function parseTJA(tjaText) {
+        function parseTJA(tjaText) {
             const lines = tjaText.split(/\r?\n/);
             const header = { title: '', subtitle: '', bpm: 120, wave: '', offset: 0 };
             const courses = {};
@@ -659,7 +635,6 @@ function parseTJA(tjaText) {
                 else if (upper.startsWith('WAVE:')) header.wave = line.substring(5).trim();
                 else if (upper.startsWith('OFFSET:')) header.offset = parseFloat(line.substring(7).trim()) || 0;
                 else if (upper.startsWith('COURSE:')) {
-                    // 途中でコースが変わる場合は直前のコースノーツを保存
                     if (currentNotes.length > 0) {
                         courses[currentCourse] = [...currentNotes];
                         currentNotes = [];
@@ -742,8 +717,8 @@ function parseTJA(tjaText) {
             }
 
             container.innerHTML = songs.map(song => {
-                const courses = parseTJACourses(song.rawText || '');
-                const availableKeys = Object.keys(courses);
+                const parsed = parseTJA(song.rawText || '');
+                const availableKeys = Object.keys(parsed.courses);
 
                 const difficultyMap = [
                     { key: 'easy', label: 'かんたん', color: 'bg-red-500 hover:bg-red-600' },
@@ -786,7 +761,6 @@ function parseTJA(tjaText) {
             }).join('');
         }
 
-        // Gameplay Engine Variables
         let currentSong = null;
         let isPlaying = false;
         let isPaused = false;
@@ -868,21 +842,18 @@ function parseTJA(tjaText) {
             if (!currentSong) return;
 
             currentDiff = diffKey;
-// parseTJA で解析済みのコースデータがあればそちらを優先、なければ rawText から取得
             const parsed = parseTJA(currentSong.rawText || '');
             let courseText = '';
 
             if (parsed.courses && parsed.courses[diffKey]) {
                 courseText = parsed.courses[diffKey].join('\n');
             } else {
-                const courses = parseTJACourses(currentSong.rawText || '');
-                courseText = courses[diffKey] || currentSong.rawText || '';
+                courseText = currentSong.rawText || '';
             }
 
             parseChartNotes(courseText, currentSong.bpm || 120);
             songOffset = currentSong.offset || 0;
 
-            // リセットスコア関連パラメータ
             score = 0; combo = 0; maxCombo = 0;
             goodCount = 0; okCount = 0; badCount = 0;
             soulGauge = 0;
@@ -910,7 +881,6 @@ function parseTJA(tjaText) {
                 courseEl.className = `text-[10px] md:text-xs font-black px-2 py-0.5 rounded-md uppercase tracking-wider text-white ${diffColors[diffKey] || 'bg-amber-500'}`;
             }
 
-            // 音源再生
             initAudioContext();
             if (currentSong.audioData) {
                 try {
@@ -971,7 +941,6 @@ function parseTJA(tjaText) {
             switchView('select');
         }
 
-// TJA Parser
         function parseChartNotes(tjaText, baseBPM) {
             gameNotes = [];
             const lines = tjaText.split(/\r?\n/);
@@ -986,7 +955,6 @@ function parseTJA(tjaText) {
             let activeRolls = [];
 
             for (let rawLine of lines) {
-                // コメント（//...）を除去して前後トリム
                 let line = rawLine.split('//')[0].trim();
                 if (!line) continue;
 
@@ -1018,10 +986,8 @@ function parseTJA(tjaText) {
                     continue;
                 }
 
-                // その他の命令文（#で始まる行）はスキップ
                 if (line.startsWith('#')) continue;
 
-                // 譜面データの解析（カンマが含まれているか判断）
                 const hasComma = line.includes(',');
                 const notePart = hasComma ? line.split(',')[0].trim() : line;
                 
@@ -1029,7 +995,6 @@ function parseTJA(tjaText) {
                     currentMeasure.push(notePart);
                 }
 
-                // カンマがあれば1小節の確定処理
                 if (hasComma) {
                     const measureStr = currentMeasure.join('');
                     const noteCount = measureStr.length;
@@ -1075,7 +1040,6 @@ function parseTJA(tjaText) {
             }
         }
 
-        // Render Loop and Gameplay Update
         function gameLoop(now) {
             if (!isPlaying) return;
 
@@ -1197,7 +1161,6 @@ function parseTJA(tjaText) {
                 if (noteX > -50 && noteX < canvas.width + 50 && !note.hit) {
                     const radius = ['3', '4', '6'].includes(note.type) ? 38 : 28;
 
-                    // 黄色連打(5)・大連打(6)の帯描画
                     if (['5', '6'].includes(note.type)) {
                         const endX = targetX + (note.endTime - currentTime) * noteSpeed;
                         const barWidth = Math.max(0, endX - noteX);
@@ -1217,7 +1180,6 @@ function parseTJA(tjaText) {
                         }
                     }
 
-                    // ノーツ描画
                     ctx.beginPath();
                     ctx.arc(noteX, targetY, radius, 0, Math.PI * 2);
 
@@ -1466,7 +1428,6 @@ function parseTJA(tjaText) {
             stopSongPlay();
         }
 
-        // キー入力イベント判定（D / F / J / K）
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && isPlaying) {
                 togglePauseGame();
