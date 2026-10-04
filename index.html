@@ -179,7 +179,7 @@
             </div>
         </div>
         <div class="absolute bottom-4 left-4 text-xs font-mono text-slate-200 font-bold tracking-wider">
-            Version 4.16.26.10.4-ja
+            Version 4.17.26.10.4-ja
         </div>
     </div>
 
@@ -651,12 +651,19 @@ function parseTJA(tjaText) {
                 line = line.trim();
                 if (!line || line.startsWith('//')) continue;
 
-                if (line.toUpperCase().startsWith('TITLE:')) header.title = line.substring(6).trim();
-                else if (line.toUpperCase().startsWith('SUBTITLE:')) header.subtitle = line.substring(9).trim().replace(/^--/, '');
-                else if (line.toUpperCase().startsWith('BPM:')) header.bpm = parseFloat(line.substring(4).trim()) || 120;
-                else if (line.toUpperCase().startsWith('WAVE:')) header.wave = line.substring(5).trim();
-                else if (line.toUpperCase().startsWith('OFFSET:')) header.offset = parseFloat(line.substring(7).trim()) || 0;
-                else if (line.toUpperCase().startsWith('COURSE:')) {
+                const upper = line.toUpperCase();
+
+                if (upper.startsWith('TITLE:')) header.title = line.substring(6).trim();
+                else if (upper.startsWith('SUBTITLE:')) header.subtitle = line.substring(9).trim().replace(/^--/, '');
+                else if (upper.startsWith('BPM:')) header.bpm = parseFloat(line.substring(4).trim()) || 120;
+                else if (upper.startsWith('WAVE:')) header.wave = line.substring(5).trim();
+                else if (upper.startsWith('OFFSET:')) header.offset = parseFloat(line.substring(7).trim()) || 0;
+                else if (upper.startsWith('COURSE:')) {
+                    // 途中でコースが変わる場合は直前のコースノーツを保存
+                    if (currentNotes.length > 0) {
+                        courses[currentCourse] = [...currentNotes];
+                        currentNotes = [];
+                    }
                     const courseVal = line.substring(7).trim().toLowerCase();
                     const courseMap = { 
                         '0': 'easy', 'easy': 'easy', 
@@ -666,15 +673,21 @@ function parseTJA(tjaText) {
                         '4': 'ura', 'edit': 'ura', 'ura': 'ura'
                     };
                     currentCourse = courseMap[courseVal] || 'oni';
-                } else if (line.toUpperCase().startsWith('#START')) {
+                    isParsingNotes = false;
+                } else if (upper.startsWith('#START')) {
                     isParsingNotes = true;
                     currentNotes = [];
-                } else if (line.toUpperCase().startsWith('#END')) {
+                } else if (upper.startsWith('#END')) {
                     isParsingNotes = false;
                     courses[currentCourse] = [...currentNotes];
+                    currentNotes = [];
                 } else if (isParsingNotes) {
                     currentNotes.push(line);
                 }
+            }
+
+            if (currentNotes.length > 0 && !courses[currentCourse]) {
+                courses[currentCourse] = [...currentNotes];
             }
 
             if (Object.keys(courses).length === 0 && currentNotes.length > 0) {
